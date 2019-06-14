@@ -1,0 +1,50 @@
+#! /usr/bin/env bash
+
+# Wrapper for the grafana-cli binary
+# This file serves as a wrapper for the grafana-cli binary. It ensures we set the system-wide Grafana configuration
+# that was bundled with the package as we use the binary.
+
+DEFAULT=/etc/default/grafana
+
+GRAFANA_HOME=/usr/share/grafana
+CONF_DIR=/etc/grafana
+DATA_DIR=/var/lib/grafana
+PLUGINS_DIR=/var/lib/grafana/plugins
+LOG_DIR=/var/log/grafana
+CONF_FILE=$CONF_DIR/grafana.ini
+PROVISIONING_CFG_DIR=$CONF_DIR/provisioning
+
+EXECUTABLE=/usr/sbin/grafana-cli.real
+
+if [ ! -x $EXECUTABLE ]; then
+ echo "Program not installed or not executable"
+ exit 5
+fi
+
+if [ $# -eq 0 ]; then
+  eval $EXECUTABLE --help
+  exit 0
+fi
+
+# overwrite settings from default file
+if [ -f "$DEFAULT" ]; then
+	. "$DEFAULT"
+fi
+
+OPTS="--homepath=${GRAFANA_HOME} --config=${CONF_FILE}"
+CFG_OPTS="cfg:default.paths.provisioning=$PROVISIONING_CFG_DIR \
+      cfg:default.paths.data=${DATA_DIR} \
+      cfg:default.paths.logs=${LOG_DIR} \
+      cfg:default.paths.plugins=${PLUGINS_DIR}"
+
+COMMAND=$1
+SUBCOMMAND=$2
+
+# We special case this command as is the only the that supports --homepath and --config as flags.
+if [[ $COMMAND == "admin" && $SUBCOMMAND == "reset-admin-password" ]]; then
+	eval $EXECUTABLE "$OPTS" "$CFG_OPTS" "$COMMAND" "$SUBCOMMAND"
+elif[[ -z $COMMAND && -z $SUBCOMMAND ]] then
+	eval $EXECUTABLE "$@" -- "$CFG_OPTS"
+else
+	eval $EXECUTABLE "$@"
+fi
